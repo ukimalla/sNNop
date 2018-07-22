@@ -1,117 +1,125 @@
 """
-  Autocompletion of the last character of words
-  Given the first three letters of a four-letters word, learn to predict the last letter
+    Project sNNop
 """
 import os
 import pandas as pd
-import numpy as np
+import math
+import tensorflow as tf
+from preprocessing import clean_data, generate_key_map
+# from convNet import conv_net
+from LSTM_layers import basic_lstm
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-import tensorflow as tf
-import numpy as np
+"""
+Data Import
+"""
+# Importing data
+training_data = pd.read_csv("data/701.34067282.csv")
+test_data = pd.read_csv("data/5328.28936538.csv")
 
-keyNames = ['cmd_r', 'cmd', 'ctrl', 'alt_r', 'caps_lock', 'up', 'down', 'right', 'comma', 'alt_l', 'tab', 'shift', "'",
-            'space', '-', '/', '.', '1', '0', '3', '2', 'backspace', '4', '7', '6', '9', '5', ';', '=', 'v', 'cmd combo'
-            ,'8', 'shift_r', '[', ']', str.rstrip("\ "), 'a', '`', 'c', 'b', 'e', 'd', 'g', 'f', 'i', 'h', 'k', 'j', 'm'
-            ,'l', 'o', 'n', 'q', 'p', 's', 'r', 'u', 't', 'w', 'enter', 'y', 'x', 'z', 'left', 'NONE', '!', '@', '#',
-            '$', '%', '^', '&', '*', '(', ')', '_', '+', '{', '}', '|', ':', '"', '<', '>', '?', '~']
-
-# index array of characters in vocab
-v_map = {n: i for i, n in enumerate(keyNames)}
+# Generating key maps
+keyNames, v_map = generate_key_map(training_data)
 v_len = len(v_map)
 
-training_data = pd.read_csv("data/E.csv")
-
+# Audio Parameters
+RATE = 8100
 CHUNK = 512
+KPS = (300/60) / 60 # Keys per second = 300kpm / 60
 
-# training data (character sequences)
-test_data = pd.read_csv("data/406.786712543.csv")
 
-def make_batch(seq_data):
-    input_batch = []
-    target_batch = []
-
-    input_batch = seq_data.iloc[:, :-1].values
-
-    blankCounter = 0
-    for i, seq in enumerate(seq_data):
-
-    input_batch = np.reshape(input_batch, (len(input_batch), CHUNK, 1))
-    for seq in seq_data.iloc[:, -1:].values:
-        target = v_map[seq[0]]
-        target_batch.append(target)
-
-    return input_batch, target_batch
-
+# Learning hyper-parameters
 learning_rate = 0.01
-n_hidden = 10
-total_epoch = 100
+n_hidden = 512
+total_epoch = 500
 n_step = CHUNK  # the length of the input sequence
 # n_input = n_class = v_len  # the size of each input
 n_input = 1
 n_class = v_len
+batch_size = 150
+
+
+"""
+Pre-processing
+"""
+
+# Removes unnecessary "NONE" chunks and encodes y values
+X_train, y_train = clean_data(training_data, v_map, chunk_size=CHUNK)
+number_of_batches = int(math.ceil(len(X_train) / batch_size))
+
 
 """
   Phase 1: Create the computation graph
 """
+
+# Construct model
+# pred = conv_net(x, weights, biases, keep_prob)
+
 X = tf.placeholder(tf.float32, [None, n_step, n_input])
 Y = tf.placeholder(tf.int32, [None])
 
-W = tf.Variable(tf.random_normal([n_hidden, n_class]))
-b = tf.Variable(tf.random_normal([n_class]))
+# pred = conv_net(x, weights, biases, keep_prob)
 
-#                output (pred. of forth letter)
-#                 | (W,b)
-#                outputs (hidden)
-#       |    |    |
-# RNN: [t1]-[t2]-[t3]
-#       x1   x2   x3
+model = basic_lstm(X=X, n_hidden=n_hidden, n_class=n_class)
 
-# Create an LSTM cell
-cell = tf.nn.rnn_cell.BasicLSTMCell(n_hidden)
-# Apply dropout for regularization
-# cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=0.75)
-
-# Create the RNN
-outputs, states = tf.nn.dynamic_rnn(cell, X, dtype=tf.float32)
-# outputs : [batch_size, max_time, cell.output_size]
-
-# Transform the output of RNN to create output values
-outputs = tf.transpose(outputs, [1, 0, 2])
-outputs = outputs[-1]
-# [batch_size, cell.output_size]
-model = tf.matmul(outputs, W) + b
-# [batch_size, n_classes]
 
 cost = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=model, labels=Y))
 
 optimizer = tf.train.AdamOptimizer(learning_rate).minimize(cost)
 
+input_batch_tf = tf.convert_to_tensor(X_train)
+target_batch_tf = tf.convert_to_tensor(y_train)
+
+
+input_qbatch, target_qbatch = tf.train.batch([input_batch_tf, target_batch_tf],
+                                           batch_size=batch_size,
+                                           num_threads=4,
+                                           capacity=50000,
+                                           allow_smaller_final_batch=True,
+                                           enqueue_many=True)
+
+config = tf.ConfigProto()
+config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
+
+
 """
   Phase 2: Train the model
 """
-with tf.Session() as sess:
+with tf.Session(config=config) as sess:
+    epoch_loss = 0
     sess.run(tf.global_variables_initializer())
 
-    input_batch, target_batch = make_batch(training_data)
+    # Coordinate the loading of image files.
+    coord = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(coord=coord)
 
     for epoch in range(total_epoch):
-        _, loss = sess.run([optimizer, cost],
-                           feed_dict={X: input_batch, Y: target_batch})
+        for batch in range(number_of_batches):
+            print("Epoch: ", epoch, " Batch: ", batch, " of", number_of_batches)
+            input_batch, target_batch = sess.run([input_qbatch, target_qbatch])
+
+            _, loss = sess.run([optimizer, cost],
+                               feed_dict={X: input_batch, Y: target_batch})
+            epoch_loss += loss
+
         print('Epoch:', '%04d' % (epoch + 1),
-              'cost =', '{:.6f}'.format(loss))
+              'cost =', '{:.6f}'.format(epoch_loss))
+        epoch_loss = 0
+
+    # Finish off the filename queue coordinator.
+    coord.request_stop()
+    coord.join(threads)
 
     print('Optimization finished')
 
     """
       Make predictions
     """
-    seq_data = training_data  # test_data
+    seq_data = test_data  # test_datatest_data
     prediction = tf.cast(tf.argmax(model, 1), tf.int32)
     accuracy = tf.reduce_mean(tf.cast(tf.equal(prediction, Y), tf.float32))
 
-    input_batch, target_batch = make_batch(seq_data)
+    input_batch, target_batch = clean_data(seq_data, v_map, chunk_size=CHUNK)
 
     predict, accuracy_val = sess.run([prediction, accuracy],
                                      feed_dict={X: input_batch, Y: target_batch})
@@ -119,12 +127,13 @@ with tf.Session() as sess:
     predicted = []
     real_keyList = []
 
-    test_keys = test_data.iloc[:, -1:].values
-    for idx, val in enumerate(predict):
+    test_keys = training_data.iloc[:, -1:].values
+    for idx, val in enumerate(test_keys):
         real_key = test_keys[idx][0]
         if str(real_key) != 'NONE':
             real_keyList.append(real_key)
 
+    for idx, val in enumerate(predict):
         pred_key = keyNames[predict[idx]]
         if str(pred_key) != 'NONE':
             predicted.append(pred_key)
@@ -133,4 +142,3 @@ with tf.Session() as sess:
     print('Real Key:', real_keyList)
     print('Predicted:', predicted)
     print('Accuracy:', accuracy_val)
-
