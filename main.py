@@ -7,7 +7,7 @@ import math
 import tensorflow as tf
 from preprocessing import clean_data, generate_key_map
 # from convNet import conv_net
-from LSTM_layers import basic_lstm
+from LSTM_layers import lstm
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -31,7 +31,7 @@ KPS = (300/60) / 60 # Keys per second = 300kpm / 60
 # Learning hyper-parameters
 learning_rate = 0.01
 n_hidden = 512
-total_epoch = 500
+total_epoch = 1
 n_step = CHUNK  # the length of the input sequence
 # n_input = n_class = v_len  # the size of each input
 n_input = 1
@@ -60,7 +60,7 @@ Y = tf.placeholder(tf.int32, [None])
 
 # pred = conv_net(x, weights, biases, keep_prob)
 
-model = basic_lstm(X=X, n_hidden=n_hidden, n_class=n_class)
+model = lstm(X=X, layers=[128, 128], n_class=n_class)
 
 
 cost = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=model, labels=Y))
@@ -115,30 +115,33 @@ with tf.Session(config=config) as sess:
     """
       Make predictions
     """
-    seq_data = test_data  # test_datatest_data
-    prediction = tf.cast(tf.argmax(model, 1), tf.int32)
-    accuracy = tf.reduce_mean(tf.cast(tf.equal(prediction, Y), tf.float32))
+    for batch in range(number_of_batches):
+        print(" Batch: ", batch, " of", number_of_batches)
+        input_batch, target_batch = sess.run([input_qbatch, target_qbatch])
 
-    input_batch, target_batch = clean_data(seq_data, v_map, chunk_size=CHUNK)
+        prediction = tf.cast(tf.argmax(model, 1), tf.int32)
+        accuracy = tf.reduce_mean(tf.cast(tf.equal(prediction, Y), tf.float32))
 
-    predict, accuracy_val = sess.run([prediction, accuracy],
-                                     feed_dict={X: input_batch, Y: target_batch})
 
-    predicted = []
-    real_keyList = []
+        predict, accuracy_val = sess.run([prediction, accuracy],
+                                         feed_dict={X: input_batch, Y: target_batch})
 
-    test_keys = training_data.iloc[:, -1:].values
-    for idx, val in enumerate(test_keys):
-        real_key = test_keys[idx][0]
-        if str(real_key) != 'NONE':
-            real_keyList.append(real_key)
+        predicted = []
+        real_keyList = []
 
-    for idx, val in enumerate(predict):
-        pred_key = keyNames[predict[idx]]
-        if str(pred_key) != 'NONE':
-            predicted.append(pred_key)
+        test_keys = training_data.iloc[:, -1:].values
 
-    print('\n=== Predictions ===')
-    print('Real Key:', real_keyList)
-    print('Predicted:', predicted)
-    print('Accuracy:', accuracy_val)
+        for idx, val in enumerate(test_keys):
+            real_key = test_keys[idx][0]
+            if str(real_key) != 'NONE':
+                real_keyList.append(real_key)
+
+        for idx, val in enumerate(predict):
+            pred_key = keyNames[predict[idx]]
+            if str(pred_key) != 'NONE':
+                predicted.append(pred_key)
+
+        print('\n=== Predictions ===')
+        print('Real Key:', real_keyList)
+        print('Predicted:', predicted)
+        print('Accuracy:', accuracy_val)

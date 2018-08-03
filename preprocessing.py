@@ -69,6 +69,6 @@ Returns: key list and key dictonary
 def generate_key_map(dataframe):
     y = dataframe.iloc[:, -1:].values
     y = [key[0] for key in y]
-    y = set(y)
+    y = list(set(y))
 
     return y, {n: i for i, n in enumerate(y)}

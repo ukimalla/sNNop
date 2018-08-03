@@ -50,18 +50,21 @@ Model
 """
 
 model = Sequential()
-model.add(Conv1D(filters=1, kernel_size=5, strides=1, padding="causal", input_shape=(512, 1)))
+model.add(Conv1D(filters=30, kernel_size=30, strides=1, padding="causal", input_shape=(512, 1)))
 model.add(MaxPool1D(pool_size=2))
 model.add(Flatten())
-model.add(Reshape((256, 1)))
+model.add(Reshape((7680, 1)))
 model.add(Dropout(0.25))
-model.add(LSTM(128, dropout=0.25))
+model.add(LSTM(50, dropout=0.25, return_sequences=True))
+model.add(LSTM(50, dropout=0.25, return_sequences=True))
+model.add(LSTM(50, dropout=0.25, return_sequences=True))
+model.add(LSTM(50, dropout=0.25))
 
 model.add(Dense(n_class, activation="softmax"))
-
+model.summary()
 model.compile(optimizer="adam", loss="sparse_categorical_crossentropy")
 
-model.fit(x=X_train, y=y_train, batch_size=batch_size, epochs=100)
+model.fit(x=X_train, y=y_train, batch_size=batch_size, epochs=100, shuffle=False)
 
 model.save("model.h5")
 

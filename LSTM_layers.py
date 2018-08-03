@@ -1,9 +1,9 @@
 import tensorflow as tf
 
 
-def basic_lstm(X, n_hidden, n_class):
+def lstm(X, layers: [], n_class):
 
-    W = tf.Variable(tf.random_normal([n_hidden, n_class]))
+    W = tf.Variable(tf.random_normal([layers[-1], n_class]))
     b = tf.Variable(tf.random_normal([n_class]))
 
     #                output (pred. of forth letter)
@@ -14,9 +14,11 @@ def basic_lstm(X, n_hidden, n_class):
     #       x1   x2   x3
 
     # Create an LSTM cell
-    cell = tf.nn.rnn_cell.BasicLSTMCell(n_hidden)
+    rnn_layers = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(size), output_keep_prob=0.80) for size in layers]
+
+
     # Apply dropout for regularization
-    cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=0.75)
+    cell = tf.nn.rnn_cell.MultiRNNCell(rnn_layers)
 
     # Create the RNN
     outputs, states = tf.nn.dynamic_rnn(cell, X, dtype=tf.float32)
