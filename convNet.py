@@ -44,7 +44,7 @@ def conv1d(x, W, b, stride=1):
 
 
 def maxpool1d(x, size=2, stride=2):
-    return tf.nn.max_pool1d(x, ksize=[1, size, 1, 1], strides=[1, stride, 1, 1], padding='SAME')
+    return tf.nn.max_pool(x, ksize=[1, size, 1, 1], strides=[1, stride, 1, 1], padding='SAME')
 
 
 # Create model
@@ -53,10 +53,10 @@ def conv_net(x, weights, biases, dropout):
     x = reshape(x, 28, 28)
 
     # Convolution Layer
-    conv1 = conv2d(x, weights['wc1'], biases['bc1'])
+    conv1 = conv1d(x, weights['wc1'], biases['bc1'])
     print("Conv 1 = ", conv1)
     # Max Pooling (down-sampling)
-    conv1 = maxpool2d(conv1, size=2, stride=2)
+    conv1 = maxpool1d(conv1, size=2, stride=2)
     print("Conv 1 = ", conv1)
 
     # Fully connected layer
@@ -66,6 +66,9 @@ def conv_net(x, weights, biases, dropout):
     fc1 = tf.nn.relu(fc1)
     # Apply Dropout
     out = tf.nn.dropout(fc1, dropout)
+
+    tf.summary.histogram("wc1_hist", weights['wc1'])
+    tf.summary.histogram("wdc1_hist", weights['wd1'])
 
     # Output, class prediction
     # out = tf.add(tf.matmul(fc1, weights['out']), biases['out'])

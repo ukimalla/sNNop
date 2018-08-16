@@ -4,7 +4,7 @@ import tqdm
 
 
 """
-Purpose: Convert CHUNK sized dataframe into X and y numpy arrays that can be read my the model
+Purpose: Convert CHUNK sized dataframe into X and y numpy arrays that can be read by the model
 Arguments: 
 
 seq_data: Input dataframe in the format sample_1, sample_2, ...,  sample_chunk_size, "key name"

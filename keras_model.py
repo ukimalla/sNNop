@@ -9,8 +9,8 @@ from preprocessing import clean_data, generate_key_map
 Data Import
 """
 # Importing data
-training_data = pd.read_csv("data/701.34067282.csv")
-test_data = pd.read_csv("data/5328.28936538.csv")
+training_data = pd.read_csv("data/406.786712543.csv")
+test_data = pd.read_csv("data/406.786712543.csv")
 
 # Generating key maps
 keyNames, v_map = generate_key_map(training_data)
@@ -61,7 +61,6 @@ model.add(LSTM(50, dropout=0.25, return_sequences=True))
 model.add(LSTM(50, dropout=0.25))
 
 model.add(Dense(n_class, activation="softmax"))
-model.summary()
 model.compile(optimizer="adam", loss="sparse_categorical_crossentropy")
 
 model.fit(x=X_train, y=y_train, batch_size=batch_size, epochs=100, shuffle=False)
