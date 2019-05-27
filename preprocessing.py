@@ -18,7 +18,7 @@ def clean_data(seq_data, v_map, chunk_size):
     y = []
 
     blank_counter = 0
-    empty_chunk_limit = 1
+    empty_chunk_limit = 0
     # math.ceil(RATE/CHUNK * KPS)
     print("Empty CHUNK limit: ", empty_chunk_limit)
 
@@ -33,7 +33,7 @@ def clean_data(seq_data, v_map, chunk_size):
                 target = [v_map[item[0]] for item in seq_data.iloc[i:i + 1, -1:].values]
 
             # and there were blanks above within empty_chunk_limits
-            elif blank_counter < empty_chunk_limit:
+            elif blank_counter <= empty_chunk_limit:
                 inputVals = seq_data.iloc[(i - blank_counter):i + 1, :-1].values
                 target = [v_map[item[0]] for item in seq_data.iloc[(i - blank_counter):i + 1, -1:].values]
             # and there were blank spaces more than empty_chunk_limit
@@ -59,16 +59,18 @@ def clean_data(seq_data, v_map, chunk_size):
 
     return X, y
 
-
 """
 Purpose: Generates a dictionary that maps each key in a dataframe to an integer.
 Returns: key list and key dictonary
 """
 
 
-def generate_key_map(dataframe):
-    y = dataframe.iloc[:, -1:].values
-    y = [key[0] for key in y]
-    y = list(set(y))
+def generate_key_map(dataframes):
+    y = []
+    for dframe in dataframes:
+        dataList = dframe.iloc[:, -1:].values
+        for key in dataList:
+            y.append(key[0])
 
+    y = list(set(y))
     return y, {n: i for i, n in enumerate(y)}
